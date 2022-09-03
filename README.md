@@ -36,4 +36,6 @@ sudo docker build -t tadirankit .
 And then run:
 ```bash
 sudo docker run -d  -t --restart always -e TARGET_IP=192.168.1.100 tadirankit
+sudo docker logs [container id] # To get QR code
 ```
+
