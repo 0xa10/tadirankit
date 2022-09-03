@@ -21,7 +21,7 @@ greeclimate.discovery - INFO - Found gree device Device: xxxxxxxxxxxx @ 192.168.
 ```
 
 ## Running
-You can run the server directly, the only thing you have to explictly set is the target ip:
+You can run the server directly, the only thing you have to explictly set is the target ip and listen port:
 ```bash
 TARGET_IP=192.168.1.100 node src/main.js
 ```
@@ -35,7 +35,7 @@ sudo docker build -t tadirankit .
 
 And then run:
 ```bash
-sudo docker run -d  -t --restart always -e TARGET_IP=192.168.1.100 tadirankit
+sudo docker run -d  -t --restart always --net=host -e TARGET_IP=192.168.1.100 -e tadirankit 
 sudo docker logs [container id] # To get QR code
 ```
 

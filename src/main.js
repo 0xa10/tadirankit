@@ -25,9 +25,9 @@ const logger = createLogger({
   transports: [new transports.Console()],
 })
 
-/// environment variables
 
 function main() {
+  /// environment variables
   if (!('TARGET_IP' in process.env)) {
     logger.fatal('$TARGET_IP must be set.')
 	process.exit();
@@ -82,6 +82,7 @@ function main() {
     )
 
     const fanSpeedCharateristic = fanService.getCharacteristic(hap.Characteristic.RotationSpeed)
+    const fanActiveCharacteristic = fanService.getCharacteristic(hap.Characteristic.Active)
 
     /// TODO
     //const displayUnitCharacteristic = heaterCoolerService.getCharacteristic(hap.Characteristic.TemperatureDisplayUnits);
@@ -90,7 +91,7 @@ function main() {
     /// these require a bit more translation from Homekit	terminology to ones more compatible with the AC interface
     //const swingModeCharacteristic = heaterCoolerService.getCharacteristic(hap.Characteristic.SwingMode);
 
-    /// active - on/off
+    /// ac active - on/off
     activeCharacteristic
       .onGet(() => {
         logger.debug('Queried current active state: ' + unitProperties.power)
@@ -112,6 +113,19 @@ function main() {
             logger.debug('Got unexpected value.')
             break
         }
+      })
+
+    /// fan active - on/off
+    fanActiveCharacteristic
+      .onGet(() => {
+        logger.debug('Queried current fan active state: ' + unitProperties.power)
+        if (unitProperties.power === 'off') {
+          return 0 // Inactive
+        }
+        return 1 // Active
+      })
+      .onSet(value => {
+        logger.debug("Fan active state request received, ignoring.")
       })
 
     /// current state - heating/cooling + on/off
@@ -274,7 +288,7 @@ function main() {
     accessory.addService(heaterCoolerService)
     accessory.addService(fanService)
 
-    const fake_mac = parseInt(client.getDeviceId(), 16) + 0x1336 // We change the mac up slightly for the HAP username
+    const fake_mac = parseInt(client.getDeviceId(), 16) + 0x1339 // We change the mac up slightly for the HAP username
     const formatted_mac = fake_mac
       .toString(16)
       .padStart(12, '0')
@@ -297,7 +311,7 @@ function main() {
       username: formatted_mac,
       pincode: formatted_pin_code,
       setupID: setupID,
-      port: 47137,
+      port: 47000 + (fake_mac % 6000), // once again - relate to mac in a close-enough to unique way
       category: hap.Categories.HeaterCooler,
     })
 
