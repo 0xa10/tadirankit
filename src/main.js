@@ -1,5 +1,5 @@
 const hap = require('hap-nodejs')
-const { createLogger, format, transports } = require('winston')
+const { createLogger, format, transports} = require('winston')
 const Gree = require('gree-hvac-client')
 const qrcode = require('qrcode-terminal')
 
@@ -14,36 +14,35 @@ const logLevels = {
 
 const logger = createLogger({
   levels: logLevels,
-  level: 'error',
-  format: format.combine(
-    format.timestamp({
-      format: 'YYYY-MM-DD HH:mm:ss',
-    }),
-    format.errors({ stack: true }),
-    format.prettyPrint(),
-  ),
+  level: process.env.LOG_LEVEL ?? 'error',
+  format: format.combine(format.json(), format.prettyPrint()),
   transports: [new transports.Console()],
 })
 
+/// application environment variables
+const TARGET_IP = process.env.TARGET_IP
+const ACCESSORY_NAME = process.env.ACCESSORY_NAME ?? 'Gree Air Conditioner'
 
 function main() {
-  /// environment variables
-  if (!('TARGET_IP' in process.env)) {
-    logger.fatal('$TARGET_IP must be set.')
-	process.exit();
-  }
-  const TARGET_IP = process.env.TARGET_IP
-  const ACCESSORY_NAME = process.env.ACCESSORY_NAME ?? 'Gree AC'
-
   /// setup Gree client
   let unitProperties = {} // Contains current target device properties
 
-  const client = new Gree.Client({ host: TARGET_IP })
+  if (TARGET_IP === undefined) {
+    logger.fatal('please set the TARGET_IP environment variable.')
+    process.exit()
+  }
+  const client = new Gree.Client({ host: TARGET_IP , debug: process.env.GREE_CLIENT_DEBUG ?? false})
 
   client.on('update', (updatedProperties, properties) => {
+    logger.debug('device reported updated properties: ' + JSON.stringify(updatedProperties))
+    logger.trace('current unit state: ' + JSON.stringify(properties))
     unitProperties = properties
-    logger.debug('received new properties from target: ' + updatedProperties)
-    logger.trace(properties)
+  })
+  // These two events are unfortunately mutually exclusive but should do the exact same thing
+  client.on('success', (updatedProperties, properties) => {
+    logger.debug('successfully updated properties:' + JSON.stringify(updatedProperties));
+    logger.trace('current unit state: ' + JSON.stringify(properties))
+    unitProperties = properties
   })
   client.on('no_response', () => {
     logger.error('no response from target.')
@@ -77,9 +76,6 @@ function main() {
     const coolingThresholdTemperatureCharacteristic = heaterCoolerService.getCharacteristic(
       hap.Characteristic.CoolingThresholdTemperature,
     )
-    const heatingThresholdTemperatureCharacteristic = heaterCoolerService.getCharacteristic(
-      hap.Characteristic.HeatingThresholdTemperature,
-    )
 
     const fanSpeedCharateristic = fanService.getCharacteristic(hap.Characteristic.RotationSpeed)
     const fanActiveCharacteristic = fanService.getCharacteristic(hap.Characteristic.Active)
@@ -88,52 +84,53 @@ function main() {
     //const displayUnitCharacteristic = heaterCoolerService.getCharacteristic(hap.Characteristic.TemperatureDisplayUnits);
     //const nameCharacteristic = heaterCoolerService.setCharacteristic(hap.Characteristic.Name, ACCESSORY_NAME);
 
-    /// these require a bit more translation from Homekit	terminology to ones more compatible with the AC interface
+    /// these require a bit more translation from Homekit terminology to ones more compatible with the AC interface
     //const swingModeCharacteristic = heaterCoolerService.getCharacteristic(hap.Characteristic.SwingMode);
+    //const heatingThresholdTemperatureCharacteristic = heaterCoolerService.getCharacteristic(
+    //  hap.Characteristic.HeatingThresholdTemperature,
+    //)
 
     /// ac active - on/off
     activeCharacteristic
       .onGet(() => {
-        logger.debug('Queried current active state: ' + unitProperties.power)
-        if (unitProperties.power === 'off') {
+        const power = unitProperties.power
+        logger.trace(`activeState.get() = ${power}`)
+        if (power === 'off') {
           return 0 // Inactive
         }
         return 1 // Active
       })
       .onSet(value => {
-        logger.debug('Setting active state to: ' + value)
+        logger.trace(`activeState.set(${value})`)
         switch (value) {
           case 0: // Inactive
-            client.setProperty(Gree.PROPERTY.power, Gree.VALUE.power.off)
+            client.setProperty('power', 'off')
             break
           case 1: // Active
-            client.setProperty(Gree.PROPERTY.power, Gree.VALUE.power.on)
+            client.setProperty('power', 'on')
             break
           default:
-            logger.debug('Got unexpected value.')
+            logger.error('got unexpected value: ' + value)
             break
         }
       })
 
     /// fan active - on/off
-    fanActiveCharacteristic
-      .onGet(() => {
-        logger.debug('Queried current fan active state: ' + unitProperties.power)
-        if (unitProperties.power === 'off') {
-          return 0 // Inactive
-        }
-        return 1 // Active
-      })
-      .onSet(value => {
-        logger.debug("Fan active state request received, ignoring.")
-      })
+    fanActiveCharacteristic.onGet(() => {
+      const power = unitProperties.power
+      logger.trace(`fanActive.get() = ${power}`)
+      if (power === 'off') {
+        return 0 // Inactive
+      }
+      return 1 // Active
+    })
 
     /// current state - heating/cooling + on/off
     currentStateCharacteristic.onGet(() => {
       const power = unitProperties.power
       const mode = unitProperties.mode
 
-      logger.debug('Queried current heater cooler state: ' + power + ' ' + mode)
+      logger.trace(`currentState.get() = ${power}, ${mode}`)
       if (power === 'off') {
         return 0 // Inactive
       }
@@ -146,7 +143,7 @@ function main() {
           return 2 // Heating
           break
         default:
-          logger.debug('Unhandled mode ' + mode)
+          logger.warn('unsupported/idle mode ' + mode)
           return 1 // Idle
       }
     })
@@ -157,7 +154,7 @@ function main() {
         const power = unitProperties.power
         const mode = unitProperties.mode
 
-        logger.debug('Queried target heater cooler state: ' + power)
+        logger.trace(`targetState.get() = ${power}, ${mode}`)
         switch (mode) {
           case 'cool':
             return 2 // Cooling
@@ -169,24 +166,24 @@ function main() {
             return 0 // Auto
             break
           default:
-            logger.debug('Unhandled mode ' + mode)
+            logger.warn('unknown target state mode reported: ' + mode)
             return 0 // Auto
         }
       })
       .onSet(value => {
-        logger.debug('Setting target heater cooler state to: ' + value)
+        logger.trace(`targetState.set(${value})`)
         switch (value) {
           case 0: // Auto
-            client.setProperty(Gree.PROPERTY.mode, Gree.VALUE.mode.auto)
+            client.setProperty('mode', 'auto')
             break
           case 1: // Heat
-            client.setProperty(Gree.PROPERTY.mode, Gree.VALUE.mode.heat)
+            client.setProperty('mode', 'heat')
             break
           case 2: // Cool
-            client.setProperty(Gree.PROPERTY.mode, Gree.VALUE.mode.cool)
+            client.setProperty('mode', 'cool')
             break
           default:
-            logger.debug('Unexpected value.')
+            logger.warn('unknown target state mode received: ' + value)
             return 0 // Auto
         }
       })
@@ -201,7 +198,7 @@ function main() {
       .onGet(() => {
         const fanSpeed = unitProperties.fanSpeed
 
-        logger.debug('Queried fan speed state: ' + fanSpeed)
+        logger.trace(`fanSpeed.get() = ${fanSpeed}`)
         switch (fanSpeed) {
           case 'auto':
             return 0 // Auto
@@ -216,35 +213,41 @@ function main() {
             return 3 // High
             break
           default:
-            logger.debug('Unhandled mode ' + mode)
+            logger.warn('unknown fan speed: ' + fanSpeed)
             return 0 // Auto
         }
       })
       .onSet(value => {
-        logger.debug('Setting target fan speed to: ' + value)
+        logger.trace(`fanSpeed.set(${value})`)
+		let fanSpeed;
         switch (value) {
           case 0: // Auto
-            client.setProperty(Gree.PROPERTY.fanSpeed, Gree.VALUE.fanSpeed.auto)
+            fanSpeed = 'auto'
             break
           case 1: // low
-            client.setProperty(Gree.PROPERTY.fanSpeed, Gree.VALUE.fanSpeed.low)
+            fanSpeed = 'low'
+            client.setProperty('fanSpeed', 'low')
             break
           case 2: // medium
-            client.setProperty(Gree.PROPERTY.fanSpeed, Gree.VALUE.fanSpeed.medium)
+            fanSpeed = 'medium'
+            client.setProperty('fanSpeed', 'medium')
             break
-          case 3: // medium
-            client.setProperty(Gree.PROPERTY.fanSpeed, Gree.VALUE.fanSpeed.high)
+          case 3: // high
+            fanSpeed = 'high'
+            client.setProperty('fanSpeed', 'high')
             break
           default:
-            logger.debug('Unexpected value.')
+            fanSpeed = 'auto'
+            logger.warn('unexpected fanSpeed value, setting to auto.')
         }
+        client.setProperties({ fanSpeed: fanSpeed, turbo: 'off', quiet: 'off' })
       })
 
     /// current temperature
     currentTemperatureCharacteristic.onGet(() => {
       const currentTemperature = unitProperties.currentTemperature
+      logger.trace(`currentTemperature.get() = ${currentTemperature}`)
 
-      logger.debug('Queried current temperature: ' + currentTemperature)
       return currentTemperature
     })
 
@@ -258,37 +261,32 @@ function main() {
       .onGet(() => {
         const temperature = unitProperties.temperature
 
-        logger.debug('Queried cooling threshold temperature: ' + temperature)
+        logger.trace(`coolingThresholdTemperature.get() = ${temperature}`)
         return temperature
       })
       .onSet(value => {
-        logger.debug('Setting cooling threshold temperature: ' + value)
+        logger.trace(`coolingThresholdTemperature.set(${value})`)
         client.setProperty('temperature', value)
       })
 
     /// heating target - set temperature
-    heatingThresholdTemperatureCharacteristic
-      //.setProps({ // This thing doesnt translate well to normal wall ACs
-      //	  minValue: 22,
-      //	  maxValue: 30,
-      //	  minStep: 1
-      //	})
-      .onGet(() => {
-        const temperature = unitProperties.temperature
+    //heatingThresholdTemperatureCharacteristic
+    //  .onGet(() => {
+    //    const temperature = unitProperties.temperature
 
-        logger.debug('Queried heating threshold temperature: ' + temperature)
-        return temperature
-      })
-      .onSet(value => {
-        logger.debug('Setting heating threshold temperature: ' + value)
-        client.setProperty('temperature', value)
-      })
+    //    logger.debug("Queried heating threshold temperature: " + temperature)
+    //    return temperature
+    //  })
+    //  .onSet(value => {
+    //    logger.debug("Setting heating threshold temperature: " + value)
+    //    client.setProperty("temperature", value)
+    //  })
 
     /// bring up service
     accessory.addService(heaterCoolerService)
     accessory.addService(fanService)
 
-    const fake_mac = parseInt(client.getDeviceId(), 16) + 0x1339 // We change the mac up slightly for the HAP username
+    const fake_mac = parseInt(client.getDeviceId(), 16) + 0x133a // We change the mac up slightly for the HAP username
     const formatted_mac = fake_mac
       .toString(16)
       .padStart(12, '0')
@@ -315,15 +313,14 @@ function main() {
       category: hap.Categories.HeaterCooler,
     })
 
-    logger.debug('Accessory setup finished!')
+    logger.info('finished accessory setup, running, press Ctrl+C to exit...')
+    process.on('SIGINT', function () {
+      logger.fatal('Caught interrupt signal')
+      process.exit()
+    })
 
-    console.log(formatted_pin_code)
+    /// print homekit qr-code to screen
     qrcode.generate(makeQrCodeUri(pin_code, setupID))
-  })
-
-  process.on('SIGINT', function () {
-    logger.fatal('Caught interrupt signal')
-    process.exit()
   })
 }
 
