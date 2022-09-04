@@ -6,7 +6,7 @@ Simple Homekit connector for Tadiran ACs, without Homebridge
 
 With the AC unit off, press MODE+WIFI until it beeps to reset the WiFi settings.
 
-Connect to the newly broadcast WiFi network and send it your WiFi credentials (2.4GHz only):
+Connect to the newly broadcast WiFi network ("GR-AC-something-or-other") and send it your WiFi credentials (2.4GHz only):
 
 ```bash
 echo -n "{\"psw\": \"SSID\",\"ssid\": \"password\",\"t\": \"wlan\"}" | nc -u 192.168.1.1 7000
@@ -26,7 +26,7 @@ greeclimate.discovery - INFO - Found gree device Device: xxxxxxxxxxxx @ 192.168.
 
 ## Running
 
-You can run the server directly, the only thing you have to explictly set is the target ip and listen port:
+You can run the server directly, the only thing you have to explictly set is the target ip:
 
 ```bash
 TARGET_IP=192.168.1.100 node src/main.js
