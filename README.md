@@ -9,7 +9,7 @@ With the AC unit off, press MODE+WIFI until it beeps to reset the WiFi settings.
 Connect to the newly broadcast WiFi network ("GR-AC-something-or-other") and send it your WiFi credentials (2.4GHz only):
 
 ```bash
-echo -n "{\"psw\": \"SSID\",\"ssid\": \"password\",\"t\": \"wlan\"}" | nc -u 192.168.1.1 7000
+echo -n "{\"psw\": \"PASSWORD\",\"ssid\": \"SSID\",\"t\": \"wlan\"}" | nc -u 192.168.1.1 7000
 ```
 
 ## Scanning for devices
