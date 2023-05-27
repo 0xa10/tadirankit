@@ -4,9 +4,8 @@ WORKDIR /opt/tadirankit
 COPY package*.json ./
 
 RUN npm install
-COPY . .
+COPY src ./src
 
-EXPOSE 47137/tcp
-EXPOSE 47137/udp
+VOLUME /opt/tadirankit/persist
 CMD ["node", "src/main.js"]
 

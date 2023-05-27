@@ -286,7 +286,7 @@ function main() {
     accessory.addService(heaterCoolerService)
     accessory.addService(fanService)
 
-    const fake_mac = parseInt(client.getDeviceId(), 16) + 0x133a // We change the mac up slightly for the HAP username
+    const fake_mac = parseInt(client.getDeviceId(), 16) + 0x133d // We change the mac up slightly for the HAP username
     const formatted_mac = fake_mac
       .toString(16)
       .padStart(12, '0')
