@@ -49,16 +49,17 @@ function main() {
   })
 
   client.on('connect', client => {
-    logger.info('new connection to target: ' + client.getDeviceId())
+	const device_id = client.getDeviceId()
+    logger.info('new connection to target: ' + device_id)
     /// setup accessory
-    const accessory = new hap.Accessory('Tadiran Joy', hap.uuid.generate('hap.tadiran.ac'))
+    const accessory = new hap.Accessory('Tadiran Joy', hap.uuid.generate('hap.tadiran.ac' + device_id))
     accessory
       .getService(hap.Service.AccessoryInformation)
       .setCharacteristic(hap.Characteristic.Manufacturer, 'Tadiran')
       .setCharacteristic(hap.Characteristic.Model, 'Joy')
       .setCharacteristic(hap.Characteristic.Name, ACCESSORY_NAME)
       .setCharacteristic(hap.Characteristic.SerialNumber, client.getDeviceId())
-      .setCharacteristic(hap.Characteristic.FirmwareRevision, '0.0.1')
+      .setCharacteristic(hap.Characteristic.FirmwareRevision, '0.0.2')
 
     const heaterCoolerService = new hap.Service.HeaterCooler('AC')
     const fanService = new hap.Service.Fan('Fan')
