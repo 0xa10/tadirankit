@@ -49,6 +49,7 @@ sudo docker logs [container id] # To get QR code
 ```
 
 # Hardening
+
 In my router - added a rule to drop all outgoing connections on the internet interface for the MAC addresses of the two devices, as well as gave them static IPs.
 Since they are on WiFi, it would be better to block it at the access point level.
 
@@ -56,11 +57,13 @@ Once you do this, you will see the WiFi interface on the AC becoming somewhat un
 
 To resolve this, I installed https://github.com/emtek-at/GreeAC-DummyServer, also in a Docker container.
 I had to change the target image:
+
 ```
 FROM mcr.microsoft.com/dotnet/sdk:6.0
 ```
 
 I also added the following hostnames to resolve to the IP of my Docker host, which is running the DummyServer
+
 ```
 dis.gree.com
 gree.home.com
@@ -68,5 +71,3 @@ info-acq.gree.com
 ```
 
 These are not strictly necessary, but make the following step redundant (I think?), which is to use https://github.com/emtek-at/GreeAC-ConfigTool to change the remote host on the device.
-
-

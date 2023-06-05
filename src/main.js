@@ -1,5 +1,5 @@
 const hap = require('hap-nodejs')
-const { createLogger, format, transports} = require('winston')
+const { createLogger, format, transports } = require('winston')
 const Gree = require('gree-hvac-client')
 const qrcode = require('qrcode-terminal')
 
@@ -31,7 +31,7 @@ function main() {
     logger.fatal('please set the TARGET_IP environment variable.')
     process.exit()
   }
-  const client = new Gree.Client({ host: TARGET_IP , debug: process.env.GREE_CLIENT_DEBUG ?? false})
+  const client = new Gree.Client({ host: TARGET_IP, debug: process.env.GREE_CLIENT_DEBUG ?? false })
 
   client.on('update', (updatedProperties, properties) => {
     logger.debug('device reported updated properties: ' + JSON.stringify(updatedProperties))
@@ -40,7 +40,7 @@ function main() {
   })
   // These two events are unfortunately mutually exclusive but should do the exact same thing
   client.on('success', (updatedProperties, properties) => {
-    logger.debug('successfully updated properties:' + JSON.stringify(updatedProperties));
+    logger.debug('successfully updated properties:' + JSON.stringify(updatedProperties))
     logger.trace('current unit state: ' + JSON.stringify(properties))
     unitProperties = properties
   })
@@ -49,10 +49,13 @@ function main() {
   })
 
   client.on('connect', client => {
-	const device_id = client.getDeviceId()
+    const device_id = client.getDeviceId()
     logger.info('new connection to target: ' + device_id)
     /// setup accessory
-    const accessory = new hap.Accessory('Tadiran Joy', hap.uuid.generate('hap.tadiran.ac' + device_id))
+    const accessory = new hap.Accessory(
+      'Tadiran Joy',
+      hap.uuid.generate('hap.tadiran.ac' + device_id),
+    )
     accessory
       .getService(hap.Service.AccessoryInformation)
       .setCharacteristic(hap.Characteristic.Manufacturer, 'Tadiran')
@@ -220,7 +223,7 @@ function main() {
       })
       .onSet(value => {
         logger.trace(`fanSpeed.set(${value})`)
-		let fanSpeed;
+        let fanSpeed
         switch (value) {
           case 0: // Auto
             fanSpeed = 'auto'
