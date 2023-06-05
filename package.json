@@ -9,10 +9,10 @@
   "main": "src/main.js",
   "author": "Pini Grigio",
   "dependencies": {
-    "gree-hvac-client": "github:0xa10/gree-hvac-client",
-    "hap-nodejs": "^0.9.8",
+    "gree-hvac-client": "^2.0.0",
+    "hap-nodejs": "^0.11.1",
     "qrcode-terminal": "^0.12.0",
-    "winston": "^3.8.1"
+    "winston": "^3.9.0"
   },
   "devDependencies": {
     "@magic/format": "^0.0.48"
